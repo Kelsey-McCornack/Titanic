@@ -1,0 +1,149 @@
+---
+title: "Titanic"
+author: "Kelsey McCornack"
+date: '2022-08-24'
+output: pdf_document
+---
+## use machine learning to create a model that predicts which passengers survived
+the Titanic shipwreck.
+
+```{r, setup, inclue = FALSE}
+knitr::opts_knit$set(root.dir = 'C:\\Users\\kmcco\\OneDrive\\Desktop\\Kaggle competitions\\titanic')
+```
+
+```{r}
+# function to cat nicely
+pretty.cat <- function(text){
+  cat('\n', text, '\n')
+}
+```
+
+
+```{r}
+# read csvs
+train <- read.csv('train.csv')
+
+test <- read.csv('test.csv')
+
+```
+
+```{r}
+# get data types
+pretty.cat('train data types')
+sapply(train, class)
+pretty.cat('test data types')
+sapply(test, class)
+
+# make "survived" categorical
+pretty.cat('Survived is categorical?')
+train$Survived <- as.factor(train$Survived)
+is.factor(train$Survived)
+
+# check for NA values
+pretty.cat('NA Counts')
+colSums(is.na(train))
+colSums(is.na(test))
+
+```
+```{r}
+library(tidyverse)
+# Replace NAs with column medians
+train <- train %>% 
+  mutate_if(is.numeric, function(x) ifelse(is.na(x), median(x, na.rm = T), x))
+
+colSums(is.na(train))
+
+```
+
+```{r, include = FALSE}
+# Remove vars without statistical values and age (too many NAs)
+train <- train[, -which(names(train) %in% c('Name', 'Age', 'PassengerID'))]
+test <- test[, -which(names(test) %in% c('Name', 'Age', 'PassengerID'))]
+
+```
+
+
+```{r, warning=FALSE}
+library(randomForest)
+require(caTools)
+```
+
+```{r}
+# Random forest with all variables
+# sample(1:1000, 1)
+seed <- 860
+
+vars <- colnames(train)
+vars
+#Model with all variables
+set.seed(860)
+model1 <- randomForest(train$Survived ~ ., data=train)
+model1
+
+#Model removing inappropriate vars
+var.out <- !names(train) %in% c('PassengerId', 'Name', 'Ticket', 'Cabin')
+var.in <- train[,var.out]
+
+model2 <- randomForest(var.in$Survived ~ ., data=var.in)
+model2
+```
+
+```{r}
+test$Survived <- predict(model2, newdata = test)
+
+table(test$Survived)
+
+varImpPlot(model, main='Relative Importance')
+
+```
+
+```{r}
+library(caret)
+# Random Search
+control <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
+set.seed(seed)
+
+mtry <- sqrt(ncol(train))
+rf_random <- train(Survived~., data=train, method="rf", metric='Accuracy', tuneLength=15, trControl=control)
+print(rf_random)
+plot(rf_random)
+```
+```{r}
+# Define the control
+trControl <- trainControl(method = "cv",
+    number = 10,
+    search = "grid")
+trControl
+
+# Run the model
+rf_default <- train(Survived~.,
+    data = train,
+    method = "rf",
+    metric = "Accuracy",
+    trControl = trControl)
+# Print the results
+print(rf_default)
+```
+
+
+
+
+```{r}
+var.in <- names(test) %in% c('PassengerId','Survived')
+
+final <- test[,var.in]
+head(final)
+```
+
+
+```{r}
+write.csv(final, file = 'titanic_final.csv', row.names = FALSE)
+```
+
+
+# Try this tutorial
+https://www.analyticsvidhya.com/blog/2016/03/select-important-variables-boruta-package/
+
+
+
+
