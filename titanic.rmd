@@ -66,3 +66,4 @@ test$PassengerID <- test_raw$PassengerId
 ```{r}
 # Save predictions to file
 write.csv(test[c('PassengerID', 'Survived')], file = 'titanic_predictions.csv', row.names = FALSE)
+```
