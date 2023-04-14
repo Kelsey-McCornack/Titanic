@@ -1,110 +1,68 @@
 ---
-title: "Titanic"
+title: "Untitled"
 author: "Kelsey McCornack"
 date: "2023-04-14"
-output: github_document
+output: html_document
 ---
 
-## Titanic Machine Learning Competition
-
-Use machine learning to create a model that predicts which passengers survived the Titanic shipwreck.
-
-Code adapted from:
-https://nishanthu.github.io/articles/ClusteringUsingRandomForest.html
-https://www.simplilearn.com/tutorials/data-science-tutorial/random-forest-in-r
-
 ```{r setup, include = FALSE}
+# Set working directory
 knitr::opts_knit$set(root.dir = 'C:\\Users\\kmcco\\OneDrive\\Desktop\\DataScienceSelfStudy\\Kaggle Competitions\\titanic')
 ```
 
-```{r, warning = FALSE, message = FALSE}
-# load libraries
+```{r}
+# Load libraries
 library(randomForest)
 ```
 
 ```{r}
-# load data sets
+# Load data sets
 train_raw <- read.csv('train.csv')
 test_raw <- read.csv('test.csv')
 ```
 
 ```{r}
-# check for NA values in training set
+# Clean and prepare training data
 train <- train_raw
-nrow(train)
-
-#These do the same thing
-colSums(is.na(train))
-
-#Check and fix data types
-sapply(train, typeof)
-
 train$Survived <- as.factor(train$Survived)
 train$Age <- as.integer(train$Age)
-
-# excluding irrelevant/unusable columns
-rm.vars <- c('Name', 'Ticket', 'Cabin', 'PassengerId')
-train <- train[,!(names(train) %in% rm.vars)]
-
-# Replace missing age values with Median
-train$Age[which(is.na(train$Age))] <- median(train$Age, na.rm = TRUE)
-
+train <- train[, !(names(train) %in% c('Name', 'Ticket', 'Cabin', 'PassengerId'))]
+train$Age[is.na(train$Age)] <- median(train$Age, na.rm = TRUE)
 colSums(is.na(train))
 ```
 
 ```{r}
-# train random forest model
-y <- train$Survived
-x <- train[-1]
-
-rf.model <- randomForest(x = x, y = y, data = train, ntree = 10000, proximity = TRUE, oob.prox = TRUE)
-hclust.rf <- hclust(as.dist(1-rf.model$proximity), method = 'ward.D2')
-rf.cluster <- cutree(hclust.rf, k=2)
-
-# Cluster assignment table
-table(rf.cluster, train$Survived)
-
-# Check model
-rf.model
-
-# Variable importance plot. Gender, age and fare appear to be the most strongly correlated with survival.
-varImpPlot(rf.model)
+# Train random forest model
+y_train <- train$Survived
+x_train <- train[, -1]
+rf_model <- randomForest(x = x_train, y = y_train, data = train, ntree = 10000, proximity = TRUE, oob.prox = TRUE)
+hclust_rf <- hclust(as.dist(1 - rf_model$proximity), method = 'ward.D2')
+rf_cluster <- cutree(hclust_rf, k = 2)
 ```
 
 ```{r}
-# check for NA values in training set
+# Evaluate model
+table(rf_cluster, train$Survived)
+rf_model
+varImpPlot(rf_model)
+```
+
+```{r}
+# Clean and prepare test data
 test <- test_raw
-nrow(test)
-
-#These do the same thing
-colSums(is.na(test))
-
-#Check and fix data types
-sapply(test, typeof)
-
 test$Age <- as.integer(test$Age)
-
-# excluding irrelevant/unusable columns
-rm.vars <- c('Name', 'Ticket', 'Cabin', 'PassengerId')
-test <- test[,!(names(test) %in% rm.vars)]
-head(test)
-
-# Replace missing values with column Median
-test$Age[which(is.na(test$Age))] <- median(test$Age, na.rm = TRUE)
-
-test$Fare[which(is.na(test$Fare))] <- median(test$Fare, na.rm = TRUE)
-
+test <- test[, !(names(test) %in% c('Name', 'Ticket', 'Cabin', 'PassengerId'))]
+test$Age[is.na(test$Age)] <- median(test$Age, na.rm = TRUE)
+test$Fare[is.na(test$Fare)] <- median(test$Fare, na.rm = TRUE)
 colSums(is.na(test))
 ```
 
 ```{r}
-# Predict survival based on rf model
-test$Survived <- predict(rf.model, type='class', newdata = test)
-
-# Add the passengerID back to test dataset
+# Make predictions
+test$Survived <- predict(rf_model, type = 'class', newdata = test)
 test$PassengerID <- test_raw$PassengerId
 ```
 
-```{r, include=FALSE}
+```{r}
+# Save predictions to file
 write.csv(test[c('PassengerID', 'Survived')], file = 'titanic_predictions.csv', row.names = FALSE)
-```
